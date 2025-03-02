@@ -1,1 +1,5 @@
 mesa
+networkx
+matplotlib
+altair
+solara

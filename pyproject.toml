@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ant-colony-optimization"
+dynamic = ["version"]
+description = ''
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "Aaron Niskin", email = "aaron@alefinsights.com" },
+  { name = "Daavid Stein", email = "daavid@alefinsights.com" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+  "altair==5.5.0",
+  "matplotlib==3.10.1",
+  "mesa==3.1.4",
+  "networkx==3.4.2",
+  "solara==1.44.1",
+]
+
+[tool.hatch.version]
+path = "src/ant_colony_optimization/__about__.py"

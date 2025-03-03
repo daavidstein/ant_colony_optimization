@@ -6,18 +6,25 @@ class Model(mesa.Model):
     def __init__(self, size: int, n_ants: int, ant_vision=1, n_foodpile=1):
         super().__init__()
         self.n_ants = n_ants
-
-        food_layer = self.init_food(size, n_ants)
+        self.anthill_pos = (size // 2, size // 2)
+        food_layer = self.init_food(size, n_foodpile)
         pheromone_layer = PropertyLayer(
             name="pheromone", width=size, height=size, default_value=0, dtype=int
         )
+        ant_colony = PropertyLayer(name="ant_colony", 
+                                   width=size, 
+                                   height=size, 
+                                   default_value=False, 
+                                   dtype=bool)
+        
+        ant_colony.set_cell(self.anthill_pos, True)
         self.grid = MultiGrid(
             width=size,
             height=size,
             torus=True,
-            property_layers=[food_layer, pheromone_layer],
+           property_layers=[food_layer, pheromone_layer, ant_colony],
         )
-        self.anthill_pos = (size // 2, size // 2)
+
         for i in range(n_ants):
             agent = Ant(self)
             (x,) = self.rng.integers(0, self.grid.width, size=1)
@@ -30,9 +37,7 @@ class Model(mesa.Model):
         )
         n_foodpile = 1
         for _ in range(n_foodpile):
-            (x,) = self.rng.integers(0, size, size=1)
-            (y,) = self.rng.integers(0, size, size=1)
-            food_layer.set_cell((int(x), int(y)), 40)
+            food_layer.set_cell((0,0), 40)
         return food_layer
 
     def step(self):
@@ -80,8 +85,11 @@ class Ant(mesa.Agent):
     def explore(self):
         # move to a random neighboring cell
         print("position is", type(self.pos), self.pos)
+        if not isinstance(self.pos, tuple):
+            print("not a tuple")
         possible_steps = self.model.grid.get_neighborhood(
             self.pos, moore=True, include_center=False
         )
-        new_position = self.rng.choice(possible_steps)
+        print("after posn",  type(self.pos),self.pos,)
+        new_position = tuple(self.rng.choice(possible_steps))
         self.model.grid.move_agent(self, new_position)

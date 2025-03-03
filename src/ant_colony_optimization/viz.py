@@ -19,7 +19,20 @@ def agent_portrayal(agent):
     }
 
 
-SpaceGraph = make_space_component(agent_portrayal)
+property_portrayal = {
+    "food": {
+    "color": "tab:red",
+   # "size": 10,
+    "alpha": 0.8
+    },
+    "ant_colony": {
+        "color": "tab:green",
+     #   "size": 10,
+        "alpha": 0.8
+    }
+}
+
+SpaceGraph = make_space_component(agent_portrayal, propertylayer_portrayal=property_portrayal)
 
 page = SolaraViz(
     model,
@@ -27,5 +40,5 @@ page = SolaraViz(
     model_params=model_params,
     name="ACO",
 )
-# page
+page
 

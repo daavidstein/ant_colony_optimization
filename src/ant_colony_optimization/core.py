@@ -1,7 +1,7 @@
 import mesa
 import numpy as np
-from mesa.space import MultiGrid, PropertyLayer
-
+from mesa.space import MultiGrid, SingleGrid, PropertyLayer
+from collections import deque
 
 def dist(point1, point2):
     return abs(point1[0] - point2[0]) + abs(point1[1] - point2[1])
@@ -29,9 +29,14 @@ class PheromoneLayer(PropertyLayer):
     def decay(self):
         self.modify_cells(lambda x: x * self.decay_factor)
 
-    def drop(self, pos, val):
-        val = 1 + val
-        self.modify_cell(pos, lambda x: min(x + val**self.exp, self.max_val))
+    def drop(self, pos, val = None, const = 1):
+        
+        if val:
+            val = 1 + val
+            self.modify_cell(pos, lambda x: min(x + val**self.exp, self.max_val))
+        else:
+            self.modify_cell(pos, lambda x: x + const)
+
 
 
 class FoodLayer(PropertyLayer):
@@ -51,7 +56,7 @@ class FoodLayer(PropertyLayer):
     def take(self, pos):
         val = self.data[pos]
         if val > 0:
-            self.set_cell(pos, val - 1)
+            #self.set_cell(pos, val - 1)
             return True
         return False
 
@@ -113,26 +118,42 @@ class Ant(mesa.Agent):
         self.temperature = temperature
         self.decay = food_decay
         self.food = 0
+        self.history = deque(maxlen=self.model.size // 2)
 
     @property
     def neighbors(self):
-        return self.model.grid.get_neighborhood(
+        neighbors = self.model.grid.get_neighborhood(
             self.pos, moore=True, include_center=False
         )
+        #don't return to a location you just left
+        eligible_neighbors = tuple(pos for pos in neighbors if pos not in self.history)
+        #eligible_neighbors = tuple(pos for pos in eligible_neighbors if self.model.grid.is_cell_empty(pos))
+        return eligible_neighbors
 
     def step(self):
+        #print(f"{self.unique_id} at {self.pos}")
         if self.pos == self.model.home:
             self.food = 0
         elif self.food == 0 and self.model.food.take(self.pos):
             self.food += 1
-        self.pheromone.drop(self.pos, self.food)
-        if self.food > 0:
-            self.food *= self.decay
-            pos = sorted(self.neighbors, key=lambda x: dist(x, self.model.home))[0]
+        #self.pheromone.drop(self.pos, self.food)
+        self.pheromone.drop(self.pos)
+
+        if self.neighbors:
+            if self.food > 0:
+                self.food *= self.decay
+                pos = sorted(self.neighbors, key=lambda x: dist(x, self.model.home))[0]
+            else:
+                wts = self.pheromone.amount(self.neighbors)
+                print(wts)
+                if self.temperature > 0:
+                    wts = np.exp(wts / self.temperature)
+                wts = wts / wts.sum()
+                (pos,) = self.random.choices(self.neighbors, wts)
+
+            self.history.append(self.pos)
+            self.model.grid.move_agent(self, tuple(pos))
         else:
-            wts = self.pheromone.amount(self.neighbors)
-            if self.temperature > 0:
-                wts = np.exp(wts / self.temperature)
-            wts = wts / wts.sum()
-            (pos,) = self.random.choices(self.neighbors, wts)
-        self.model.grid.move_agent(self, tuple(pos))
+            self.history.append((np.inf, np.inf))
+
+#does the pheremone ever decay to zero?

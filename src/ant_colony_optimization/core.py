@@ -1,12 +1,51 @@
 import mesa
 import numpy as np
 from mesa.space import MultiGrid, PropertyLayer
-
+from mesa.datacollection import DataCollector
 
 def dist(point1, point2):
     return abs(point1[0] - point2[0]) + abs(point1[1] - point2[1])
 
 
+class Ant(mesa.Agent):
+    def __init__(self, model, temperature=1, food_decay=0.9):
+        super().__init__(model)
+        self.pheromone = self.model.pheromone
+        self.temperature = temperature
+        self.decay = food_decay
+        self.food = 0
+        self.food_deposited = 0
+
+
+    @property
+    def neighbors(self):
+        return self.model.grid.get_neighborhood(
+            self.pos, moore=True, include_center=False
+        )
+
+    def step(self):
+        if self.pos == self.model.home:
+            self.food_deposited += self.food
+            self.food = 0
+
+        elif self.food == 0 and self.model.food.take(self.pos):
+            self.food += 1
+        self.pheromone.drop(self.pos, self.food)
+        if self.food > 0:
+            self.food *= self.decay
+            pos = sorted(self.neighbors, key=lambda x: dist(x, self.model.home))[0]
+        else:
+            wts = self.pheromone.amount(self.neighbors)
+            if self.temperature > 0:
+                wts = np.exp(wts / self.temperature)
+            wts = wts / wts.sum()
+            (pos,) = self.random.choices(self.neighbors, wts)
+        self.model.grid.move_agent(self, tuple(pos))
+
+
+datacollector = DataCollector(agenttype_reporters={Ant: {"food_deposited": "food_deposited"},                                      
+                                                 #"solution_distance": "solution_distance"
+                                                 })
 class PheromoneLayer(PropertyLayer):
     propertylayer_experimental_warning_given = True
 
@@ -71,6 +110,7 @@ class Model(mesa.Model):
         pheromone_decay=0.99,
     ):
         super().__init__()
+        self.datacollector = datacollector
         self.size = size
         self.home = (size // 2, size // 2)
         self.food = FoodLayer(
@@ -101,38 +141,7 @@ class Model(mesa.Model):
             )
 
     def step(self):
+        self.datacollector.collect(self)
         self.pheromone.decay()
         for agent_class in self.agent_types:
             self.agents_by_type[agent_class].shuffle_do("step")
-
-
-class Ant(mesa.Agent):
-    def __init__(self, model, temperature=1, food_decay=0.9):
-        super().__init__(model)
-        self.pheromone = self.model.pheromone
-        self.temperature = temperature
-        self.decay = food_decay
-        self.food = 0
-
-    @property
-    def neighbors(self):
-        return self.model.grid.get_neighborhood(
-            self.pos, moore=True, include_center=False
-        )
-
-    def step(self):
-        if self.pos == self.model.home:
-            self.food = 0
-        elif self.food == 0 and self.model.food.take(self.pos):
-            self.food += 1
-        self.pheromone.drop(self.pos, self.food)
-        if self.food > 0:
-            self.food *= self.decay
-            pos = sorted(self.neighbors, key=lambda x: dist(x, self.model.home))[0]
-        else:
-            wts = self.pheromone.amount(self.neighbors)
-            if self.temperature > 0:
-                wts = np.exp(wts / self.temperature)
-            wts = wts / wts.sum()
-            (pos,) = self.random.choices(self.neighbors, wts)
-        self.model.grid.move_agent(self, tuple(pos))
